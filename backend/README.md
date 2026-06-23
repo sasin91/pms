@@ -23,12 +23,115 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+NestJS patient API with Passport local login, Passport JWT bearer
+authentication, and role-based authorization.
+
+Set a strong signing secret before running in production:
+
+```bash
+export JWT_SECRET='replace-with-a-long-random-secret'
+export JWT_EXPIRES_IN='1h'
+```
+
+For local development only, the application uses a built-in development
+secret when `JWT_SECRET` is absent. Startup fails if it is absent while
+`NODE_ENV=production`. `JWT_EXPIRES_IN` accepts durations supported by
+`jsonwebtoken`, such as `15m`, `1h`, or `7d`, and defaults to `1h`.
+
+### Seeded accounts
+
+| Email | Password | Role | Associated patient |
+| --- | --- | --- | --- |
+| `admin@example.com` | `admin-password` | `admin` | none |
+| `alice@example.com` | `user-password` | `user` | `patient-1` |
+| `bob@example.com` | `user-password` | `user` | `patient-2` |
+
+Users and patients are persisted in PostgreSQL through Prisma.
+
+### API
+
+Interactive Swagger documentation is available at `/docs`; the OpenAPI JSON
+document is available at `/docs-json`.
+
+Request DTOs use `class-validator`. Unknown properties and invalid field
+formats return `400 Bad Request`.
+
+Log in with `POST /auth/login`:
+
+```json
+{
+  "email": "alice@example.com",
+  "password": "user-password"
+}
+```
+
+Response:
+
+```json
+{
+  "token": "<jwt>",
+  "user": {
+    "email": "alice@example.com",
+    "role": "user"
+  }
+}
+```
+
+Send the token on protected requests:
+
+```text
+Authorization: Bearer <token>
+```
+
+| Method | Route | Request | Response | Access |
+| --- | --- | --- | --- | --- |
+| `POST` | `/auth/login` | `{ email, password }` | `{ token, user: { email, role } }` | Any |
+| `GET` | `/patients?page=1&limit=10` | — | `{ data: Patient[], page, limit, total }` | Admin/User |
+| `GET` | `/patients/:id` | — | `Patient` | Admin/User |
+| `POST` | `/patients` | `Patient` fields | `Patient` | Admin only |
+| `PUT` | `/patients/:id` | Complete `Patient` fields | `Patient` | Admin only |
+| `DELETE` | `/patients/:id` | — | `{ ok: true }` | Admin only |
+
+Users can only read their associated patient. Missing or invalid authentication
+returns `401`; insufficient role or patient access returns `403`.
+
+### Resilience simulation
+
+Latency and transient failures are opt-in so normal development and tests stay
+deterministic:
+
+```bash
+export API_SIMULATION_ENABLED=true
+export API_MIN_LATENCY_MS=100
+export API_MAX_LATENCY_MS=500
+export API_FAILURE_RATE=0.05
+```
+
+Each request waits for a random duration in the configured range. The failure
+rate is a value from `0` to `1`; simulated failures return `503 Service
+Unavailable`.
 
 ## Project setup
 
 ```bash
 $ npm install
+```
+
+### Database schema
+
+The PostgreSQL schema is defined in `prisma/schema.prisma`. It contains:
+
+- `User`, with a unique email, bcrypt password hash, and `admin | user`
+  role.
+- `Patient`, matching the patient API fields.
+- An optional one-to-one association from a user to a patient.
+
+Generate the Prisma client and apply migrations:
+
+```bash
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed
 ```
 
 ## Compile and run the project

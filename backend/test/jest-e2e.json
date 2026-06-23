@@ -3,7 +3,15 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "setupFiles": ["<rootDir>/setup-env.ts"],
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "astTransformers": {
+          "before": ["<rootDir>/swagger-plugin.js"]
+        }
+      }
+    ]
   }
 }
