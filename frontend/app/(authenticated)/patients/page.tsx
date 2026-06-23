@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSession } from "@/hooks/use-session";
 
 type Patient = {
   id: string;
@@ -77,13 +78,13 @@ function PatientsSkeleton() {
 
 export default function PatientsPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: sessionLoading, role } = useSession();
   const [patients, setPatients] = useState<PatientPage>();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortField>("lastName");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
-  const [role, setRole] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
@@ -97,29 +98,27 @@ export default function PatientsPage() {
 
   const loadPatients = useCallback(
     async (signal?: AbortSignal) => {
-      const sessionResponse = await fetch("/api/auth/session", { signal });
-      if (!sessionResponse.ok) {
-        setError("Your session is missing. Sign in again to view patients.");
-        setLoading(false);
-        return;
-      }
-      const session = (await sessionResponse.json()) as { role: string };
-      setRole(session.role);
+      if (sessionLoading) return;
 
       setLoading(true);
       setError(undefined);
 
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(PAGE_SIZE),
-        sortBy,
-        sortOrder,
-      });
-      if (debouncedSearch.trim()) {
-        params.set("search", debouncedSearch.trim());
-      }
-
       try {
+        if (!isAuthenticated) {
+          setError("Your session is missing. Sign in again to view patients.");
+          return;
+        }
+
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(PAGE_SIZE),
+          sortBy,
+          sortOrder,
+        });
+        if (debouncedSearch.trim()) {
+          params.set("search", debouncedSearch.trim());
+        }
+
         const response = await fetch(`/api/patients?${params}`, {
           signal,
         });
@@ -149,7 +148,7 @@ export default function PatientsPage() {
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [debouncedSearch, page, sortBy, sortOrder],
+    [debouncedSearch, isAuthenticated, page, sessionLoading, sortBy, sortOrder],
   );
 
   useEffect(() => {
