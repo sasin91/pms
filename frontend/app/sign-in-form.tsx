@@ -24,7 +24,6 @@ const signInSchema = z.object({
 })
 
 type LoginResponse = {
-  token: string
   user: {
     email: string
     role: "admin" | "user"
@@ -57,6 +56,7 @@ export function SignInForm() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "X-PMS-Remember-Me": String(value.rememberMe),
           },
           body: JSON.stringify({
             email: value.email,
@@ -79,19 +79,8 @@ export function SignInForm() {
           return
         }
 
-        const session = JSON.stringify(body)
-        const persistentStorage = value.rememberMe
-          ? localStorage
-          : sessionStorage
-        const staleStorage = value.rememberMe
-          ? sessionStorage
-          : localStorage
-
-        persistentStorage.setItem("pms.auth", session)
-        staleStorage.removeItem("pms.auth")
-        localStorage.removeItem("pms_token")
-
         router.replace("/patients")
+        router.refresh()
       } catch {
         setSubmitError(
           "The server could not be reached. Check that the backend is running and try again.",

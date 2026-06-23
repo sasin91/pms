@@ -47,37 +47,6 @@ type SortOrder = "asc" | "desc";
 
 const PAGE_SIZE = 10;
 
-function getSession() {
-  const saved =
-    sessionStorage.getItem("pms.auth") ?? localStorage.getItem("pms.auth");
-
-  if (saved) {
-    try {
-      const auth = JSON.parse(saved) as {
-        token?: string;
-        user?: { role?: string };
-      };
-      if (auth.token) {
-        return { token: auth.token, role: auth.user?.role };
-      }
-    } catch {
-      // Fall through to the standalone token used by early development builds.
-    }
-  }
-
-  const token = localStorage.getItem("pms_token");
-  if (!token) return {};
-
-  try {
-    const claims = JSON.parse(
-      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
-    ) as { role?: string };
-    return { token, role: claims.role };
-  } catch {
-    return { token };
-  }
-}
-
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
@@ -128,14 +97,14 @@ export default function PatientsPage() {
 
   const loadPatients = useCallback(
     async (signal?: AbortSignal) => {
-      const session = getSession();
-      setRole(session.role);
-
-      if (!session.token) {
+      const sessionResponse = await fetch("/api/auth/session", { signal });
+      if (!sessionResponse.ok) {
         setError("Your session is missing. Sign in again to view patients.");
         setLoading(false);
         return;
       }
+      const session = (await sessionResponse.json()) as { role: string };
+      setRole(session.role);
 
       setLoading(true);
       setError(undefined);
@@ -152,7 +121,6 @@ export default function PatientsPage() {
 
       try {
         const response = await fetch(`/api/patients?${params}`, {
-          headers: { Authorization: `Bearer ${session.token}` },
           signal,
         });
         const body = (await response.json().catch(() => ({}))) as
@@ -208,11 +176,9 @@ export default function PatientsPage() {
       return;
     }
 
-    const { token } = getSession();
     try {
       const response = await fetch(`/api/patients/${patient.id}`, {
         method: "DELETE",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (!response.ok) {
@@ -240,7 +206,7 @@ export default function PatientsPage() {
   const isAdmin = role === "admin";
 
   return (
-    <main className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -447,7 +413,7 @@ export default function PatientsPage() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 
