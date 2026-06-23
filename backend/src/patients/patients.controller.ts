@@ -60,7 +60,7 @@ export class PatientsController {
     type: PatientPageDto,
   })
   @ApiBadRequestResponse({
-    description: 'Pagination parameters are invalid.',
+    description: 'List parameters are invalid.',
     type: ErrorResponseDto,
   })
   @Get()
@@ -81,6 +81,9 @@ export class PatientsController {
       pagination.page,
       pagination.limit,
       request.user.patientId,
+      pagination.search,
+      pagination.sortBy,
+      pagination.sortOrder,
     );
   }
 

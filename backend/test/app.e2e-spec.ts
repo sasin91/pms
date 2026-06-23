@@ -124,6 +124,9 @@ describe('Authentication and patient authorization (e2e)', () => {
       paginationParameters.find((parameter) => parameter.name === 'limit')
         ?.schema.type,
     ).toBe('number');
+    expect(paginationParameters.map((parameter) => parameter.name)).toEqual(
+      expect.arrayContaining(['search', 'sortBy', 'sortOrder']),
+    );
     expect(
       paginationParameters.some((parameter) => parameter.schema.allOf),
     ).toBe(false);
@@ -190,6 +193,26 @@ describe('Authentication and patient authorization (e2e)', () => {
       total: 2,
     });
     expect((response.body as PatientPageResponse).data).toHaveLength(1);
+  });
+
+  it('searches and sorts patients before pagination', async () => {
+    const token = await login('admin@example.com', 'admin-password');
+
+    const search = await request(app.getHttpServer())
+      .get('/patients?search=alice')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (search.body as PatientPageResponse).data.map(
+        ({ firstName }) => firstName,
+      ),
+    ).toEqual(['Alice']);
+
+    const sorted = await request(app.getHttpServer())
+      .get('/patients?sortBy=lastName&sortOrder=desc&limit=1')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect((sorted.body as PatientPageResponse).data[0]?.lastName).toBe('Berg');
   });
 
   it('limits user reads to the associated patient', async () => {

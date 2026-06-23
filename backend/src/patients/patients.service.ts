@@ -8,6 +8,7 @@ import { ERROR_MESSAGES } from '../common/error-messages';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreatePatientDto } from './dto/create-patient.dto';
 import type { ReplacePatientDto } from './dto/replace-patient.dto';
+import type { PatientSortField, SortOrder } from './dto/pagination-query.dto';
 import type { Patient, PatientPage } from './patient.entity';
 
 @Injectable()
@@ -18,12 +19,27 @@ export class PatientsService {
     page: number,
     limit: number,
     patientId?: string,
+    search?: string,
+    sortBy: PatientSortField = 'lastName',
+    sortOrder: SortOrder = 'asc',
   ): Promise<PatientPage> {
-    const where = patientId ? { id: patientId } : {};
+    const query = search?.trim();
+    const where = {
+      ...(patientId ? { id: patientId } : {}),
+      ...(query
+        ? {
+            OR: [
+              { firstName: { contains: query, mode: 'insensitive' as const } },
+              { lastName: { contains: query, mode: 'insensitive' as const } },
+              { email: { contains: query, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
     const [patients, total] = await this.prisma.$transaction([
       this.prisma.patient.findMany({
         where,
-        orderBy: { id: 'asc' },
+        orderBy: [{ [sortBy]: sortOrder }, { id: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
